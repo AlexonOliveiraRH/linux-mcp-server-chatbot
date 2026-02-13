@@ -1,0 +1,39 @@
+# Don't copy these to the container image
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.env
+.env.example
+.git/
+.gitignore
+.claude/
+
+# Documentation
+*.md
+docs/
+tests/
+scripts/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SSH (will be mounted at runtime)
+.ssh/
+
+# Kubernetes
+k8s-version/

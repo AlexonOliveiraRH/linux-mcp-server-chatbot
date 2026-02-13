@@ -1,0 +1,19 @@
+# OpenShift Route (for OpenShift AI / OpenDataHub)
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: linux-mcp-chatbot
+  namespace: linux-mcp-chatbot
+  labels:
+    app: linux-mcp-chatbot
+spec:
+  to:
+    kind: Service
+    name: linux-mcp-chatbot
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

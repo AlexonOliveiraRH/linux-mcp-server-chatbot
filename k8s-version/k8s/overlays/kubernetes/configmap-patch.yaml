@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatbot-config
+data:
+  # ============================================================
+  # Standard Kubernetes Configuration Examples
+  # ============================================================
+
+  # Example 1: Claude via Vertex AI (Recommended for production)
+  MODEL_ENDPOINT: "https://vertex-ai-anthropic"
+  MODEL_NAME: "claude-sonnet-4-5@20250929"
+  GOOGLE_LOCATION: "us-east5"
+
+  # Example 2: OpenAI ChatGPT
+  # MODEL_ENDPOINT: "https://api.openai.com"
+  # MODEL_NAME: "gpt-4-turbo"
+
+  # Example 3: Ollama (self-hosted)
+  # MODEL_ENDPOINT: "http://ollama.models.svc.cluster.local:11434"
+  # MODEL_NAME: ""  # Auto-detect
+
+  # Example 4: vLLM (self-hosted)
+  # MODEL_ENDPOINT: "http://vllm-server.models.svc.cluster.local:8000"
+  # MODEL_NAME: "mistralai/Mistral-7B-Instruct-v0.2"
+
+  # Example 5: NVIDIA Triton
+  # MODEL_ENDPOINT: "http://triton-inference.models.svc.cluster.local:8000"
+  # MODEL_NAME: "llama-2-13b-chat"
+
+  # Example 6: Llama.cpp
+  # MODEL_ENDPOINT: "http://llamacpp-server.models.svc.cluster.local:8080"
+  # MODEL_NAME: "llama-2-7b-chat.gguf"
+
+  # Standard settings
+  REQUEST_TIMEOUT: "300"
+  TOOL_CHOICE: "none"
+  MODEL_CONTEXT_TOKENS: "4096"

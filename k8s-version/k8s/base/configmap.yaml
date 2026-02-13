@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatbot-config
+  namespace: linux-mcp-chatbot
+data:
+  # ============================================================
+  # Inference Runtime Configuration
+  # ============================================================
+  # AUTO-DETECTION: The chatbot will auto-detect the runtime type
+  # based on the MODEL_ENDPOINT response format
+  #
+  # Supported runtimes:
+  # - Claude via Vertex AI (Google Cloud)
+  # - OpenAI API (ChatGPT, GPT-4)
+  # - vLLM ServingRuntime
+  # - Caikit TGIS ServingRuntime
+  # - TGIS Standalone ServingRuntime
+  # - OpenVINO Model Server
+  # - NVIDIA Triton Inference Server
+  # - Seldon MLServer
+  # - Llama.cpp
+  # - Ollama
+  # - KServe InferenceService
+
+  # ============================================================
+  # Option 1: Claude via Google Vertex AI (Recommended)
+  # ============================================================
+  # Uses Google Cloud credentials from mounted secret
+  MODEL_ENDPOINT: "https://vertex-ai-anthropic"
+  MODEL_NAME: "claude-sonnet-4-5@20250929"
+  GOOGLE_LOCATION: "us-east5"
+
+  # ============================================================
+  # Option 2: OpenAI API
+  # ============================================================
+  # MODEL_ENDPOINT: "https://api.openai.com"
+  # MODEL_NAME: "gpt-4-turbo"
+
+  # ============================================================
+  # Option 3: vLLM ServingRuntime (OpenDataHub/RHOAI)
+  # ============================================================
+  # For models served via vLLM in OpenShift AI
+  # MODEL_ENDPOINT: "http://granite-vllm.opendatahub.svc.cluster.local:8000"
+  # MODEL_NAME: "ibm/granite-7b-instruct"
+
+  # ============================================================
+  # Option 4: Caikit TGIS ServingRuntime (RHOAI)
+  # ============================================================
+  # For models served via Caikit+TGIS in Red Hat OpenShift AI
+  # MODEL_ENDPOINT: "http://granite-caikit.opendatahub.svc.cluster.local:8085"
+  # MODEL_NAME: "ibm/granite-13b-chat-v2"
+
+  # ============================================================
+  # Option 5: TGIS Standalone ServingRuntime
+  # ============================================================
+  # MODEL_ENDPOINT: "http://mistral-tgis.models.svc.cluster.local:8033"
+  # MODEL_NAME: "mistralai/Mistral-7B-Instruct-v0.2"
+
+  # ============================================================
+  # Option 6: OpenVINO Model Server (Intel CPUs/GPUs)
+  # ============================================================
+  # MODEL_ENDPOINT: "http://openvino-server.models.svc.cluster.local:8000"
+  # MODEL_NAME: "llama-2-7b-chat"
+
+  # ============================================================
+  # Option 7: NVIDIA Triton Inference Server
+  # ============================================================
+  # MODEL_ENDPOINT: "http://triton-server.models.svc.cluster.local:8000"
+  # MODEL_NAME: "llama-2-13b-chat"
+
+  # ============================================================
+  # Option 8: Ollama (Local models)
+  # ============================================================
+  # MODEL_ENDPOINT: "http://ollama.models.svc.cluster.local:11434"
+  # MODEL_NAME: ""  # Leave empty for auto-detection
+
+  # ============================================================
+  # Option 9: KServe InferenceService
+  # ============================================================
+  # MODEL_ENDPOINT: "http://granite-predictor.models.svc.cluster.local/v1"
+  # MODEL_NAME: "granite-7b-instruct"
+  # OPENAI_API_PATH: "openai"
+
+  # ============================================================
+  # Linux MCP Server Configuration
+  # ============================================================
+  MCP_COMMAND: "/usr/local/bin/linux-mcp-server"
+
+  # SSH username for remote Linux hosts
+  # This is used when querying remote systems
+  LINUX_MCP_USER: "admin"
+
+  # ============================================================
+  # Advanced Settings
+  # ============================================================
+  REQUEST_TIMEOUT: "300"
+  TOOL_CHOICE: "none"
+  MODEL_CONTEXT_TOKENS: "4096"
+  MAX_TOOL_OUTPUT_CHARS: "2400"
+
+  # Streamlit configuration
+  STREAMLIT_SERVER_PORT: "8501"
+  STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+  STREAMLIT_SERVER_HEADLESS: "true"
+  STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"

@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: redhat-ods-applications
+
+bases:
+- ../../base
+
+# Override namespace for RHOAI
+namespace: redhat-ods-applications
+
+# Patch for Red Hat OpenShift AI specific configuration
+patchesStrategicMerge:
+- configmap-patch.yaml
+- deployment-patch.yaml
+
+resources:
+- ../../base/route.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: redhat-ods-applications
+  app.opendatahub.io/component: "true"
