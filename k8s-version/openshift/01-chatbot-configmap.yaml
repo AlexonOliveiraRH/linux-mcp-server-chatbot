@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatbot-config
+  namespace: linux-mcp-chatbot
+  labels:
+    app: linux-mcp-chatbot
+data:
+  # ========== MCP Server Configuration ==========
+  MCP_SERVER_URL: "http://linux-mcp-server:8000"
+  MCP_TIMEOUT: "300"
+
+  # ========== Model Configuration ==========
+  # Claude via Vertex AI (recommended)
+  MODEL_ENDPOINT: "https://vertex-ai-anthropic"
+  MODEL_NAME: "claude-sonnet-4-5@20250929"
+  GOOGLE_LOCATION: "us-east5"
+
+  # OpenAI (alternative)
+  # MODEL_ENDPOINT: "https://api.openai.com"
+  # MODEL_NAME: "gpt-4-turbo"
+
+  # Self-hosted model (alternative)
+  # MODEL_ENDPOINT: "http://vllm-service:8000"
+  # MODEL_NAME: "ibm/granite-7b-instruct"
+
+  # ========== Advanced Configuration ==========
+  REQUEST_TIMEOUT: "300"
+  TOOL_CHOICE: "none"  # Use "auto" for models with native function calling
+  MODEL_CONTEXT_TOKENS: "200000"  # Context window size
+  MAX_TOOL_OUTPUT_CHARS: "8000"  # Truncate tool output to this length

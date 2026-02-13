@@ -1,0 +1,184 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linux-mcp-chatbot
+  namespace: linux-mcp-server-chatbot
+  labels:
+    app: linux-mcp-chatbot
+    app.kubernetes.io/name: linux-mcp-chatbot
+    app.kubernetes.io/component: chatbot-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linux-mcp-chatbot
+  template:
+    metadata:
+      labels:
+        app: linux-mcp-chatbot
+    spec:
+      # Init container to set up SSH keys
+      initContainers:
+      - name: setup-ssh
+        image: quay.io/your-org/linux-mcp-chatbot:latest
+        command:
+          - /bin/bash
+          - -c
+          - |
+            # Create SSH directory
+            mkdir -p /tmp/ssh-keys
+
+            # Copy SSH key from secret if exists
+            if [ -f /var/secrets/ssh/ssh-privatekey ]; then
+              cp /var/secrets/ssh/ssh-privatekey /tmp/ssh-keys/id_ed25519
+              chmod 600 /tmp/ssh-keys/id_ed25519
+            fi
+
+            # Copy SSH config if exists
+            if [ -f /var/secrets/ssh/config ]; then
+              cp /var/secrets/ssh/config /tmp/ssh-keys/config
+              chmod 600 /tmp/ssh-keys/config
+            fi
+
+            echo "SSH keys prepared"
+        volumeMounts:
+        - name: ssh-key
+          mountPath: /var/secrets/ssh
+          readOnly: true
+        - name: ssh-shared
+          mountPath: /tmp/ssh-keys
+
+      containers:
+      # Single chatbot container with embedded MCP server
+      - name: chatbot
+        image: quay.io/your-org/linux-mcp-chatbot:latest
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8501
+          name: http
+          protocol: TCP
+
+        env:
+        # MCP configuration - use stdio transport (embedded mode)
+        - name: MCP_COMMAND
+          value: "python3"
+        - name: MCP_ARGS
+          value: "-m,linux_mcp_server"
+        - name: LINUX_MCP_USER
+          value: "root"
+        - name: SSH_KEY_PATH
+          value: "/tmp/ssh-keys/id_ed25519"
+        - name: SSH_CONFIG_PATH
+          value: "/tmp/ssh-keys/config"
+        # Set HOME for MCP server to use writable directory
+        - name: HOME
+          value: "/tmp"
+        - name: XDG_DATA_HOME
+          value: "/tmp/.local/share"
+        - name: XDG_STATE_HOME
+          value: "/tmp/.local/state"
+
+        # Model configuration
+        - name: MODEL_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: chatbot-config
+              key: MODEL_ENDPOINT
+        - name: MODEL_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: chatbot-config
+              key: MODEL_NAME
+        - name: GOOGLE_LOCATION
+          valueFrom:
+            configMapKeyRef:
+              name: chatbot-config
+              key: GOOGLE_LOCATION
+
+        # Google Cloud credentials
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /var/secrets/gcp/gcp-credentials.json
+        - name: GOOGLE_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: chatbot-api-keys
+              key: GOOGLE_PROJECT_ID
+
+        # Advanced configuration
+        - name: REQUEST_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: chatbot-config
+              key: REQUEST_TIMEOUT
+        - name: TOOL_CHOICE
+          valueFrom:
+            configMapKeyRef:
+              name: chatbot-config
+              key: TOOL_CHOICE
+        - name: MODEL_CONTEXT_TOKENS
+          valueFrom:
+            configMapKeyRef:
+              name: chatbot-config
+              key: MODEL_CONTEXT_TOKENS
+        - name: MAX_TOOL_OUTPUT_CHARS
+          valueFrom:
+            configMapKeyRef:
+              name: chatbot-config
+              key: MAX_TOOL_OUTPUT_CHARS
+
+        volumeMounts:
+        # GCP credentials for Vertex AI
+        - name: gcp-credentials
+          mountPath: /var/secrets/gcp
+          readOnly: true
+        # SSH keys for MCP server
+        - name: ssh-shared
+          mountPath: /tmp/ssh-keys
+
+        resources:
+          requests:
+            cpu: 300m
+            memory: 768Mi
+          limits:
+            cpu: 2000m
+            memory: 3Gi
+
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+      volumes:
+      # GCP service account credentials
+      - name: gcp-credentials
+        secret:
+          secretName: chatbot-gcp-credentials
+          items:
+          - key: gcp-credentials.json
+            path: gcp-credentials.json
+          optional: true
+
+      # SSH private key from secret
+      - name: ssh-key
+        secret:
+          secretName: linux-mcp-ssh
+          defaultMode: 0600
+          optional: true
+
+      # Shared SSH directory
+      - name: ssh-shared
+        emptyDir: {}

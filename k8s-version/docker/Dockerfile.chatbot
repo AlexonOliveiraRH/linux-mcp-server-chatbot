@@ -1,0 +1,44 @@
+# Linux MCP Chatbot Container
+# Multi-architecture support: linux/amd64, linux/arm64
+# Connects to MCP server via HTTP (streamable-http transport)
+
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create application directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY docker/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files from src/
+COPY src/app.py .
+COPY src/mcp_client_http.py .
+COPY src/mcp_client_stdio.py .
+COPY src/claude_vertex_wrapper.py .
+
+# Create non-root user (let OpenShift assign UID)
+RUN useradd -m -s /bin/bash appuser && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose Streamlit port
+EXPOSE 8501
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+# Run Streamlit
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

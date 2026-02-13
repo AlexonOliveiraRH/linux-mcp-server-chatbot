@@ -1,405 +1,253 @@
-# 🐧 Linux MCP Server Chatbot - Kubernetes Version
+# Linux MCP Server Chatbot - Kubernetes/OpenShift Version
 
-Containerized deployment of the AI-powered Linux diagnostics chatbot for Kubernetes, OpenDataHub, and Red Hat OpenShift AI.
+AI-powered Linux diagnostics chatbot using Claude and MCP (Model Context Protocol).
 
-## ✨ Features
-
-- **🐳 Containerized** - Runs in Kubernetes, OpenShift, OpenDataHub, RHOAI
-- **🔄 Multiple Runtimes** - Support for 10+ inference server types
-- **🤖 Multiple Models** - Works with Granite, Mistral, Llama, Gemma, Claude, GPT, and more
-- **🌐 Remote Access** - SSH to any Linux host from containers
-- **📊 Platform Optimized** - Specific configs for OpenDataHub, RHOAI, vanilla K8s
-- **🔐 Secure** - Non-root containers, secrets management, RBAC
-
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│               Kubernetes/OpenShift Cluster               │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  linux-mcp-chatbot Pod                          │   │
-│  │                                                  │   │
-│  │  ┌──────────────────────────────────────────┐  │   │
-│  │  │  Streamlit UI (Port 8501)                │  │   │
-│  │  └──────────────────┬───────────────────────┘  │   │
-│  │                     │                           │   │
-│  │  ┌──────────────────▼───────────────────────┐  │   │
-│  │  │  LangChain Agent + MCP Client            │  │   │
-│  │  └──────────┬────────────────┬──────────────┘  │   │
-│  │             │                │                  │   │
-│  │  ┌──────────▼─────────┐  ┌──▼───────────────┐ │   │
-│  │  │ Linux MCP Server   │  │ Inference Model  │ │   │
-│  │  │ (subprocess)       │  │ (HTTP API)       │ │   │
-│  │  └──────────┬─────────┘  └──────────────────┘ │   │
-│  │             │                                   │   │
-│  │  ┌──────────▼─────────┐                        │   │
-│  │  │ SSH to Remote      │                        │   │
-│  │  │ Linux Hosts        │                        │   │
-│  │  └────────────────────┘                        │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                          │
-│  Inference Models (choose one):                         │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ vLLM Pod    │  │ Caikit Pod   │  │ Claude       │  │
-│  │ (Granite)   │  │ (Mistral)    │  │ (Vertex AI)  │  │
-│  └─────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│         OpenShift/Kubernetes Pod            │
+│  ┌───────────────────────────────────────┐  │
+│  │     Chatbot Container (Streamlit)     │  │
+│  │  - Claude Sonnet 4.5 via Vertex AI    │  │
+│  │  - LangChain Agent                    │  │
+│  │  - 19 diagnostic tools                │  │
+│  │           ↓ stdio                     │  │
+│  │  Linux MCP Server (subprocess)        │  │
+│  │  - System info, processes, services   │  │
+│  │  - Network, storage, logs             │  │
+│  │  - Remote SSH support                 │  │
+│  └───────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘
 ```
 
-## 📁 Directory Structure
+## Features
 
-```
-k8s-version/
-├── docker/                    # Container image files
-│   ├── Dockerfile            # Multi-arch Dockerfile
-│   ├── .dockerignore         # Build exclusions
-│   └── build.sh              # Build script
-│
-├── k8s/                      # Kubernetes manifests
-│   ├── base/                 # Base manifests (platform-agnostic)
-│   │   ├── namespace.yaml
-│   │   ├── serviceaccount.yaml
-│   │   ├── configmap.yaml    # Model configuration
-│   │   ├── secret.yaml       # Credentials template
-│   │   ├── deployment.yaml   # Pod spec
-│   │   ├── service.yaml
-│   │   ├── route.yaml        # OpenShift Route
-│   │   ├── ingress.yaml      # K8s Ingress
-│   │   └── kustomization.yaml
-│   │
-│   └── overlays/             # Platform-specific overlays
-│       ├── opendatahub/      # OpenDataHub deployment
-│       ├── openshift-ai/     # Red Hat OpenShift AI
-│       └── kubernetes/       # Vanilla Kubernetes
-│
-├── config/                   # Configuration helpers
-│   ├── create-secrets.sh     # Secret creation script
-│   └── examples/             # Example configurations
-│       ├── claude-vertex.env
-│       ├── vllm-granite.env
-│       ├── caikit-tgis-granite.env
-│       ├── ollama.env
-│       └── openai.env
-│
-└── docs/                     # Documentation
-    ├── DEPLOYMENT.md         # Deployment guide
-    ├── MODELS.md             # Model configuration
-    └── TROUBLESHOOTING.md    # Common issues
-```
+- **19 Linux Diagnostic Tools** via MCP
+- **Remote SSH Support** for all tools
+- **Claude Sonnet 4.5** for intelligent query understanding
+- **Embedded MCP Server** using stdio transport
+- **OpenShift Compatible** (no privileged mode required)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
-- Kubernetes 1.24+ or OpenShift 4.12+
-- kubectl or oc CLI configured
-- Container registry access (for pushing images)
-- Model inference service deployed (or cloud API credentials)
+- OpenShift/Kubernetes cluster access
+- Google Cloud project with Vertex AI enabled
+- Container registry access (e.g., quay.io)
+- SSH keys for remote host access (optional)
 
-### Option 1: Deploy with Claude via Vertex AI (Recommended)
-
-**1. Build and push container image:**
+### 1. Build Container
 
 ```bash
-cd docker/
+cd docker
+
 export IMAGE_REGISTRY=quay.io/your-org
 export IMAGE_NAME=linux-mcp-chatbot
-export IMAGE_TAG=v1.0.0
-./build.sh
+export IMAGE_TAG=latest
+
+# Single architecture (faster)
+./build-single-arch.sh
+
+# Multi-architecture (production)
+./build-chatbot.sh
 ```
 
-**2. Create secrets:**
+### 2. Update Image in Deployment
 
-```bash
-cd ../config/
-
-# Set your GCP project ID
-export GOOGLE_PROJECT_ID=your-gcp-project-id
-
-# Create secrets with GCP credentials
-kubectl create secret generic chatbot-secrets \
-  --from-file=gcp-credentials.json=/path/to/service-account.json \
-  --from-literal=GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID} \
-  -n linux-mcp-chatbot
-
-# Create SSH key secret (for remote host access)
-kubectl create secret generic chatbot-secrets \
-  --from-file=ssh-privatekey=~/.ssh/id_rsa \
-  -n linux-mcp-chatbot
-```
-
-**3. Deploy to Kubernetes:**
-
-```bash
-cd ../k8s/
-
-# Edit base/configmap.yaml - ensure it has:
-# MODEL_ENDPOINT: "https://vertex-ai-anthropic"
-# MODEL_NAME: "claude-sonnet-4-5@20250929"
-# GOOGLE_LOCATION: "us-east5"
-
-# Deploy
-kubectl apply -k base/
-```
-
-**4. Access the chatbot:**
-
-```bash
-# Port forward
-kubectl port-forward -n linux-mcp-chatbot svc/linux-mcp-chatbot 8501:8501
-
-# Open browser to http://localhost:8501
-```
-
-### Option 2: Deploy to OpenDataHub with vLLM + Granite
-
-**1. Deploy Granite model via vLLM in OpenDataHub:**
-
-```bash
-# Create ServingRuntime and InferenceService
-# (See OpenDataHub documentation)
-```
-
-**2. Update configuration:**
-
-```bash
-# Use the OpenDataHub overlay
-cd k8s/overlays/opendatahub/
-
-# Edit configmap-patch.yaml to point to your vLLM service:
-# MODEL_ENDPOINT: "http://granite-vllm.opendatahub.svc.cluster.local:8000"
-# MODEL_NAME: "ibm/granite-7b-instruct"
-```
-
-**3. Deploy:**
-
-```bash
-kubectl apply -k k8s/overlays/opendatahub/
-```
-
-### Option 3: Deploy to Red Hat OpenShift AI
-
-**1. Deploy model via RHOAI dashboard**
-
-**2. Use RHOAI overlay:**
-
-```bash
-cd k8s/overlays/openshift-ai/
-
-# Edit configmap-patch.yaml with your model service endpoint
-
-# Deploy
-oc apply -k .
-```
-
-**3. Access via OpenShift Route:**
-
-```bash
-oc get route -n redhat-ods-applications linux-mcp-chatbot
-```
-
-## 🔧 Configuration
-
-### Supported Inference Runtimes
-
-| Runtime | Models | Example Endpoint |
-|---------|--------|------------------|
-| **vLLM** | Granite, Mistral, Llama, Mixtral | `http://vllm-svc:8000` |
-| **Caikit+TGIS** | Granite, Mistral | `http://caikit-svc:8085` |
-| **TGIS Standalone** | Granite, Mistral | `http://tgis-svc:8033` |
-| **OpenVINO** | Gemma, Llama | `http://openvino-svc:8000` |
-| **NVIDIA Triton** | Any | `http://triton-svc:8000` |
-| **Ollama** | Mistral, Llama, Gemma | `http://ollama-svc:11434` |
-| **Llama.cpp** | GGUF models | `http://llamacpp-svc:8080` |
-| **Claude (Vertex)** | Claude 3.5 Sonnet | `https://vertex-ai-anthropic` |
-| **OpenAI** | GPT-4, ChatGPT | `https://api.openai.com` |
-| **Gemini** | Gemini 1.5 Pro | `https://genai.googleapis.com` |
-
-### Example Configurations
-
-See `config/examples/` for complete examples:
-
-- `claude-vertex.env` - Claude via GCP Vertex AI
-- `vllm-granite.env` - IBM Granite via vLLM
-- `caikit-tgis-granite.env` - Granite via Caikit-TGIS
-- `ollama.env` - Self-hosted Ollama
-- `openai.env` - OpenAI ChatGPT/GPT-4
-
-### ConfigMap Options
-
-Edit `k8s/base/configmap.yaml`:
+Edit `openshift/02-chatbot-deployment.yaml` and update:
 
 ```yaml
-data:
-  # Model configuration
-  MODEL_ENDPOINT: "http://your-model-service:8000"
-  MODEL_NAME: "your-model-name"
-
-  # MCP configuration
-  MCP_COMMAND: "/usr/local/bin/linux-mcp-server"
-  LINUX_MCP_USER: "admin"
-
-  # Advanced
-  REQUEST_TIMEOUT: "300"
-  TOOL_CHOICE: "none"
-  MODEL_CONTEXT_TOKENS: "4096"
+image: quay.io/your-org/linux-mcp-chatbot:latest
 ```
 
-## 🔐 Security
-
-### Non-Root Container
-
-The container runs as user `appuser` (UID 1001) with:
-- No root privileges
-- Read-only root filesystem
-- Dropped capabilities
-- Security context constraints
-
-### Secrets Management
-
-Credentials are stored in Kubernetes Secrets:
+### 3. Create Secrets
 
 ```bash
-# GCP credentials (for Vertex AI)
-kubectl create secret generic chatbot-secrets \
-  --from-file=gcp-credentials.json=/path/to/key.json
+# Google Cloud credentials for Vertex AI
+oc create secret generic chatbot-gcp-credentials \
+  --from-file=gcp-credentials.json=path/to/your-credentials.json \
+  -n linux-mcp-server-chatbot
 
-# API keys (for OpenAI, Anthropic, etc.)
-kubectl create secret generic chatbot-secrets \
-  --from-literal=OPENAI_API_KEY=sk-xxx
+# Google Cloud project ID
+oc create secret generic chatbot-api-keys \
+  --from-literal=GOOGLE_PROJECT_ID=your-project-id \
+  -n linux-mcp-server-chatbot
 
-# SSH key (for remote hosts)
-kubectl create secret generic chatbot-secrets \
-  --from-file=ssh-privatekey=~/.ssh/id_rsa
+# SSH keys for remote access (optional)
+oc create secret generic linux-mcp-ssh \
+  --from-file=ssh-privatekey=path/to/your/id_ed25519 \
+  --from-file=config=path/to/your/ssh_config \
+  -n linux-mcp-server-chatbot
 ```
 
-### Network Policies
-
-Example network policy (optional):
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: chatbot-netpol
-spec:
-  podSelector:
-    matchLabels:
-      app: linux-mcp-chatbot
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  - from:
-    - podSelector: {}
-    ports:
-    - port: 8501
-  egress:
-  - to:
-    - podSelector: {}  # Internal cluster
-  - to:  # External APIs
-    - ipBlock:
-        cidr: 0.0.0.0/0
-```
-
-## 📊 Monitoring
-
-### Health Checks
-
-The deployment includes:
-
-**Liveness Probe:**
-```yaml
-httpGet:
-  path: /_stcore/health
-  port: 8501
-initialDelaySeconds: 30
-periodSeconds: 10
-```
-
-**Readiness Probe:**
-```yaml
-httpGet:
-  path: /_stcore/health
-  port: 8501
-initialDelaySeconds: 15
-periodSeconds: 5
-```
-
-### Resource Limits
-
-Default resource allocation:
-
-```yaml
-resources:
-  requests:
-    cpu: 100m
-    memory: 256Mi
-  limits:
-    cpu: 1000m
-    memory: 1Gi
-```
-
-Adjust based on your model size and expected load.
-
-## 🛠️ Troubleshooting
-
-### Pod not starting
+### 4. Deploy
 
 ```bash
-# Check pod status
-kubectl get pods -n linux-mcp-chatbot
+cd openshift
 
-# View logs
-kubectl logs -n linux-mcp-chatbot deployment/linux-mcp-chatbot
+# Deploy all resources
+oc apply -f 00-namespace.yaml
+oc apply -f 01-chatbot-configmap.yaml
+oc apply -f 02-chatbot-deployment.yaml
+oc apply -f 03-chatbot-service.yaml
+oc apply -f 04-chatbot-route.yaml
 
-# Describe pod for events
-kubectl describe pod -n linux-mcp-chatbot <pod-name>
+# Or use the deploy script
+chmod +x deploy.sh
+./deploy.sh
 ```
 
-### Cannot connect to model
+### 5. Access
+
+Get the route URL:
 
 ```bash
-# Test connectivity from pod
-kubectl exec -n linux-mcp-chatbot <pod-name> -- curl -v <MODEL_ENDPOINT>
-
-# Check service DNS
-kubectl exec -n linux-mcp-chatbot <pod-name> -- nslookup <service-name>
+oc get route linux-mcp-chatbot -n linux-mcp-server-chatbot
 ```
 
-### SSH to remote hosts failing
+Access the chatbot at the displayed URL.
+
+## Configuration
+
+Edit `openshift/01-chatbot-configmap.yaml`:
+
+```yaml
+MODEL_ENDPOINT: "https://vertex-ai-anthropic"
+MODEL_NAME: "claude-sonnet-4-5@20250929"
+GOOGLE_LOCATION: "us-east5"
+REQUEST_TIMEOUT: "300"
+TOOL_CHOICE: "auto"
+```
+
+## Available Tools
+
+**System Information:**
+- `get_system_information` - OS, kernel, uptime
+- `get_cpu_information` - CPU details and load
+- `get_memory_information` - RAM and swap usage
+- `get_hardware_information` - Hardware details
+- `get_disk_usage` - Filesystem usage
+
+**Processes & Services:**
+- `list_processes` - All running processes
+- `get_process_info` - Details for specific PID
+- `list_services` - All systemd services
+- `get_service_status` - Service status details
+- `get_service_logs` - Service logs
+
+**Network:**
+- `get_network_interfaces` - Interface details
+- `get_network_connections` - Active connections
+- `get_listening_ports` - Open ports and services
+
+**Storage & Files:**
+- `list_block_devices` - Disks and partitions
+- `list_directories` - Directory listing
+- `list_files` - File listing
+- `read_file` - Read file contents
+
+**Logs:**
+- `get_journal_logs` - Systemd journal logs
+- `read_log_file` - Read specific log files
+
+All tools support optional `host` parameter for remote execution via SSH.
+
+## Example Queries
+
+```
+"What services are running?"
+"Show me disk usage"
+"List the top 10 processes by CPU"
+"Get system information"
+"Check health status of demo.example.local"
+"Show me journal logs from the last hour"
+```
+
+## Troubleshooting
+
+### Check Pod Status
 
 ```bash
-# Check SSH key mount
-kubectl exec -n linux-mcp-chatbot <pod-name> -- ls -la /home/appuser/.ssh/
-
-# Test SSH manually
-kubectl exec -n linux-mcp-chatbot <pod-name> -- ssh -i /home/appuser/.ssh/id_rsa user@host
+oc get pods -n linux-mcp-server-chatbot
+oc logs -f deployment/linux-mcp-chatbot -n linux-mcp-server-chatbot
 ```
 
-### Tool calls not working
+### Common Issues
 
-Check the model configuration supports tool calling:
-- Claude: ✅ Native tool support
-- OpenAI GPT-4: ✅ Function calling
-- Granite/Mistral: ⚠️ May need TOOL_CHOICE=none
-- Smaller models: ❌ Limited tool support
+**Permission Denied: /.local**
+- Fixed by setting `HOME=/tmp` and `XDG_DATA_HOME=/tmp/.local/share` in deployment
 
-## 📚 Additional Documentation
+**Tool Validation Errors**
+- Tools use `StructuredTool` with Pydantic models for proper argument handling
 
-- [DEPLOYMENT.md](docs/DEPLOYMENT.md) - Detailed deployment guide
-- [MODELS.md](docs/MODELS.md) - Model configuration guide
-- [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues
+**Image Not Updating**
+- Delete pod to force pull: `oc delete pod -l app=linux-mcp-chatbot -n linux-mcp-server-chatbot`
 
-## 🙏 Related Projects
+## Project Structure
+
+```
+k8s-version/
+├── docker/                    # Container build
+│   ├── Dockerfile.chatbot     # Chatbot container
+│   ├── requirements.txt       # Python dependencies
+│   ├── build-chatbot.sh       # Multi-arch build
+│   └── build-single-arch.sh   # Single-arch build
+├── src/                       # Source code
+│   ├── app.py                 # Main Streamlit application
+│   ├── mcp_client_stdio.py    # MCP stdio transport client
+│   ├── mcp_client_http.py     # MCP HTTP transport client (legacy)
+│   └── claude_vertex_wrapper.py # Claude Vertex AI wrapper
+├── openshift/                 # Deployment manifests
+│   ├── 00-namespace.yaml      # Namespace
+│   ├── 01-chatbot-configmap.yaml # Configuration
+│   ├── 02-chatbot-deployment.yaml # Main deployment
+│   ├── 03-chatbot-service.yaml # Service
+│   └── 04-chatbot-route.yaml  # Route (HTTPS)
+└── DEPLOYMENT_SUMMARY.md      # Detailed deployment guide
+```
+
+## Development
+
+### Update Code
+
+1. Modify source in `src/`
+2. Rebuild container
+3. Push to registry
+4. Update deployment:
+
+```bash
+oc set image deployment/linux-mcp-chatbot \
+  chatbot=quay.io/your-org/linux-mcp-chatbot:new-tag \
+  -n linux-mcp-server-chatbot
+```
+
+### Debug
+
+Enable verbose logging in `src/app.py` (already included):
+- `[DEBUG]` - Application flow
+- `[MCP STDOUT]` - MCP server JSON-RPC messages
+- `[MCP STDERR]` - MCP server logs
+
+## Security
+
+- Container runs as non-root user `appuser`
+- SSH keys mounted read-only from secrets
+- No privileged mode required
+- Complies with OpenShift Pod Security Standards
+
+## Performance
+
+- **Startup time:** ~10 seconds
+- **Tool initialization:** ~2 seconds
+- **Query response:** 5-15 seconds (tool + LLM)
+- **Memory:** ~768 MB
+- **CPU:** 0.2-2.0 cores (burst)
+
+## References
 
 - [Linux MCP Server](https://rhel-lightspeed.github.io/linux-mcp-server/)
-- [OpenDataHub](https://opendatahub.io/)
-- [Red Hat OpenShift AI](https://www.redhat.com/en/technologies/cloud-computing/openshift/openshift-ai)
-- [vLLM](https://github.com/vllm-project/vllm)
-- [Ollama](https://ollama.ai/)
-
----
-
-**Built with ❤️ for cloud-native AI diagnostics**
+- [Model Context Protocol](https://modelcontextprotocol.io/)
+- [Claude API](https://docs.anthropic.com/)
+- [OpenShift Documentation](https://docs.openshift.com/)
